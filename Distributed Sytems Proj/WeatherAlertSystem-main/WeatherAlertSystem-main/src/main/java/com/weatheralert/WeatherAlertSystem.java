@@ -15,8 +15,9 @@ public class WeatherAlertSystem {
         fetcher.startFetching();
 
         // Start the AlertNotifier to listen for alerts and send notifications
-        AlertNotifier notifier = new AlertNotifier();
+        WeatherSubscriber notifier = new WeatherSubscriber();
         notifier.startListening();
     }
 }
+
 
