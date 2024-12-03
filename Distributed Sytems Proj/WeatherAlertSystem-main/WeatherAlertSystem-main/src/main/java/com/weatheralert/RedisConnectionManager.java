@@ -10,12 +10,9 @@ public class RedisConnectionManager {
         }
         return jedis;
     }
-
-    public static void closeAllConnections() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'closeAllConnections'");
-    }
 }
+
+
 
 
 
