@@ -107,7 +107,6 @@
             margin-bottom: 10px;
         }
 
-        /* Event log section styling */
         #event-log {
             border: 2px solid #3b5998;
             border-radius: 8px;
@@ -156,23 +155,9 @@
             align-items: center;
             width: 100%;
         }
-
-        /* Button to fetch event logs */
-        #fetch-logs {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin-top: 20px;
-        }
-
-        #fetch-logs:hover {
-            background-color: #0056b3;
-        }
     </style>
+    
+    
 </head>
 <body>
     <div class="container">
@@ -206,7 +191,6 @@
                 <h3>Weather Updates</h3>
             </div>
 
-            <!-- Event log section -->
             <div id="event-log">
                 <h3>Event Logs</h3>
                 <button id="fetch-logs">Show Logged Events</button>
@@ -223,7 +207,11 @@
     <script>
         const socket = io();
 
-        // Fetch event logs from the server
+        // When connected to the WebSocket server
+        socket.on('connect', () => {
+            console.log("Connected to the server via WebSocket!");
+        });
+
         document.getElementById('fetch-logs').addEventListener('click', async () => {
             const response = await fetch('/api/event-logs');
             const data = await response.json();
@@ -246,6 +234,19 @@
         socket.on('weather_alerts', (message) => {
             console.log("Weather alert received:", message);
             displayWeatherAlert(message);
+
+            if (message === "Evacuate") {
+                const response = confirm("Extreme temperature alert! Do you need an evacuation plan?");
+                if (response) {
+                    socket.emit('evacuation_alert', 'evacuate');
+                    console.log("Evacuation plan selected.");
+                } else {
+                    console.log("User does not need an evacuation plan.");
+                    socket.emit('evacuation_alert', 'no_evacuate');
+                }
+            } else {
+                console.log("Weather alert:", message);
+            }
         });
 
         // Event listener for weather updates
@@ -260,6 +261,19 @@
             const alertMessage = document.createElement('p');
             alertMessage.textContent = `Alert: ${message}`;
             alertsDiv.appendChild(alertMessage);
+
+            if (message === 'Evacuate') {
+                if (!document.getElementById('evacuate-button')) {
+                    const button = document.createElement("button");
+                    button.textContent = "Emergency Shelters Near Me";
+                    button.id = "evacuate-button";
+                    button.onclick = () => {
+                        document.getElementById('map').style.display = 'block';  
+                        initMap();
+                    };
+                    alertsDiv.appendChild(button);
+                }
+            }
         }
 
         // Function to display weather updates in the UI
@@ -269,6 +283,70 @@
             updateMessage.textContent = `Update: ${message}`;
             updatesDiv.appendChild(updateMessage);
         }
+
+        // Function to initialize the Google Map and add shelter markers
+        function initMap() {
+            const locations = [
+                { name: 'Elisa House', address: '60 Newcastle St, Toronto, ON M8Y 1A3', lat: 43.633, lng: -79.512 },
+                { name: 'Fred Victor Centre Fatima House', address: '1059 College St, Toronto, ON M6H 1B1', lat: 43.655, lng: -79.423 },
+                { name: 'Evangeline Residence', address: '2808 Dundas St W, Toronto, ON M6P 1Y5', lat: 43.657, lng: -79.482 },
+                { name: 'Bathurst-Lakeshore Shelter', address: '545 Lake Shore Blvd W, Toronto, ON M5V 1A3', lat: 43.637, lng: -79.401 },
+                { name: 'Junction Place', address: '731 Runnymede Rd, Toronto, ON M6N 3V7', lat: 43.671, lng: -79.493 },
+                { name: 'Florence Booth House', address: '723 Queen St W, Toronto, ON M6J 1E6', lat: 43.649, lng: -79.406 },
+                { name: 'Christie-Ossington Neighbourhood Centre (Lansdowne Ave)', address: '973 Lansdowne Ave, Toronto, ON M6H 3Z5', lat: 43.663, lng: -79.452 },
+                { name: 'Sistering', address: '962 Bloor St W, Toronto, ON M6H 1L6', lat: 43.661, lng: -79.426 },
+                { name: 'Christie-Ossington Neighbourhood Centre (Bloor St W)', address: '850 Bloor St W, Toronto, ON M6G 1M2', lat: 43.664,},
+                { name: 'Christie-Ossington Neighbourhood Centre (Bloor St W)', address: '850 Bloor St W, Toronto, ON M6G 1M2', lat: 43.664, lng: -79.423 }
+            ];
+
+            // Create the map centered at a default location
+            const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 12,
+                center: { lat: 43.7, lng: -79.42 }
+            });
+
+            // Add markers for each shelter location
+            locations.forEach(location => {
+                const marker = new google.maps.Marker({
+                    position: { lat: location.lat, lng: location.lng },
+                    map: map,
+                    title: location.name,
+                });
+
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `<h3>${location.name}</h3><p>${location.address}</p><button class="directions-btn" data-lat="${location.lat}" data-lng="${location.lng}">Get Directions</button>`
+                });
+
+                marker.addListener('click', function() {
+                    infoWindow.open(map, marker);
+                });
+            });
+
+            // Add event listener for "Get Directions" button click
+            document.addEventListener('click', function(event) {
+                if (event.target && event.target.classList.contains('directions-btn')) {
+                    const lat = parseFloat(event.target.getAttribute('data-lat'));
+                    const lng = parseFloat(event.target.getAttribute('data-lng'));
+
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(function(position) {
+                            const userLat = position.coords.latitude;
+                            const userLng = position.coords.longitude;
+
+                            const directionsUrl = `https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLng}&destination=${lat},${lng}&travelmode=driving`;
+                            window.open(directionsUrl, '_blank');
+                        }, function() {
+                            alert("Unable to get your location for directions.");
+                        });
+                    } else {
+                        alert("Geolocation is not supported by your browser.");
+                    }
+                }
+            });
+        }
     </script>
+
+    <!-- Google Maps API Script -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDs9BUcJE0SqSj7459CyAcm4KDZyOALXtw&callback=initMap" async defer></script>
 </body>
 </html>
