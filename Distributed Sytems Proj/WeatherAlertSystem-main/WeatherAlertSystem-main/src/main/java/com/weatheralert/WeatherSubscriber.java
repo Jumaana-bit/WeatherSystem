@@ -4,21 +4,40 @@ import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPubSub;
 
 public class WeatherSubscriber {
+    private static final String REDIS_CHANNEL = "weather_alerts";
+    private Jedis jedis;
+
+    public WeatherSubscriber() {
+        // Creating a separate Jedis instance for subscribing
+        this.jedis = new Jedis("localhost", 6379);
+    }
+
+    public void startListening() {
+        // Subscribe to the weather_alerts channel in a separate thread
+        new Thread(() -> {
+            JedisPubSub jedisPubSub = new JedisPubSub() {
+                @Override
+                public void onMessage(String channel, String message) {
+                    if (channel.equals(REDIS_CHANNEL)) {
+                        sendNotification(message);
+                    }
+                }
+            };
+
+            // Subscribe to the channel
+            jedis.subscribe(jedisPubSub, REDIS_CHANNEL);
+        }).start();
+    }
+
+    public void sendNotification(String message) {
+        // Simulate sending a notification (e.g., email, SMS)
+        System.out.println("ALERT: " + message);
+    }
 
     public static void main(String[] args) {
-        Jedis subscriberJedis = new Jedis("localhost", 6379);
-        JedisPubSub jedisPubSub = new JedisPubSub() {
-            @Override
-            public void onMessage(String channel, String message) {
-                System.out.println("Received message from " + channel + ": " + message);
-                if (message.equals("evacuate")) {
-                    System.out.println("Evacuation alert received, passing it to frontend.");
-                }
-            }
-            
-        };
-
-        System.out.println("Subscribing to weather_alerts and weather_updates channels...");
-        subscriberJedis.subscribe(jedisPubSub, "weather_alerts", "weather_updates", "evacuation_alert");
+        WeatherSubscriber notifier = new WeatherSubscriber();
+        notifier.startListening();
     }
 }
+
+
